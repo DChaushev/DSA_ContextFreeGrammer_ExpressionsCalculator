@@ -15,7 +15,7 @@ public class CliOutput implements ResultOutput {
 
     @Override
     public void displayResult(String result) {
-        System.out.println("\nYour result is: " + result);
+        System.out.println("Your result is: " + result);
     }
 
 }

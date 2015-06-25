@@ -44,8 +44,8 @@ public class CliCalculator {
 
             terminal = scanExpression(originalExpression);
 
-            System.out.println(terminal);
-            System.out.println(terminalValues);
+            //System.out.println(terminal);
+            //System.out.println(terminalValues);
             int result = evaluateExpression();
             ro.displayResult(String.format("%d", result));
             originalExpression = ei.getInput();
@@ -102,9 +102,8 @@ public class CliCalculator {
         if (scanningState == READ_NUMBER) {
             terminal.push((int) 'N');
             terminalValues.push(number);
-            number = 0;
         }
-        
+
         return terminal;
     }
 
@@ -144,7 +143,7 @@ public class CliCalculator {
                 ro.displayResult("Division by zero");
                 throw new IllegalArgumentException("Division by zero");
             }
-            terminal.peek();
+            terminal.pop();
             return evaluateTerm() / factorValue;
 
         }
