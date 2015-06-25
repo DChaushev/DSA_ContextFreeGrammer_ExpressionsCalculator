@@ -18,12 +18,12 @@ public class CliInput implements ExpressionInput {
     private String input;
 
     public CliInput() {
-        System.out.print("Enter an expression: ");
         scan = new Scanner(System.in);
     }
 
     @Override
     public String getInput() {
+        System.out.print("Enter an expression: ");
         input = scan.nextLine();
         return input;
     }

@@ -9,9 +9,9 @@ import static com.fmi.dsa.cfg.cli_calculator.ReadingState.*;
 import com.fmi.dsa.cfg.interfaces.ResultOutput;
 import com.fmi.dsa.cfg.interfaces.ExpressionInput;
 import static java.lang.Character.isDigit;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Stack;
 import jdk.nashorn.internal.runtime.regexp.joni.exception.SyntaxException;
 
 /**
@@ -26,11 +26,9 @@ public class CliCalculator {
     private final ResultOutput ro;
     private String originalExpression = "";
 
-    //TODO: use stacks instead of lists
-    private List<Integer> terminal;
-    private List<Integer> terminalValues;
+    private Stack<Integer> terminal;
+    private Stack<Integer> terminalValues;
     private final List<Character> OPERATORS;
-    private int terminalPosition;
 
     public CliCalculator(ExpressionInput ei, ResultOutput ro) {
         this.OPERATORS = Arrays.asList('(', ')', '+', '-', '*', '/');
@@ -55,15 +53,14 @@ public class CliCalculator {
         }
     }
 
-    private List<Integer> scanExpression(String expression) {
+    private Stack<Integer> scanExpression(String expression) {
 
-        terminal = new ArrayList<>();
-        terminalValues = new ArrayList<>();
+        terminal = new Stack<>();
+        terminalValues = new Stack<>();
 
         ReadingState scanningState = READ_ANYTHING;
         int number = 0;
         int currentPosition = 0;
-        int numberPosition = 0;
 
         terminal.add((int) 'S');
 
@@ -76,9 +73,8 @@ public class CliCalculator {
                 case READ_ANYTHING:
                     if (isDigit(currentCharacter)) {
                         scanningState = READ_NUMBER;
-                        numberPosition = 0;
                     } else if (isOperator(currentCharacter)) {
-                        terminal.add((int) currentCharacter);
+                        terminal.push((int) currentCharacter);
                         currentPosition++;
                     } else if (currentCharacter == ' ') {
                         currentPosition++;
@@ -94,8 +90,8 @@ public class CliCalculator {
                         number += Character.getNumericValue(currentCharacter);
                         currentPosition++;
                     } else {
-                        terminal.add((int) 'N');
-                        terminalValues.add(number);
+                        terminal.push((int) 'N');
+                        terminalValues.push(number);
                         number = 0;
                         scanningState = READ_ANYTHING;
                     }
@@ -104,12 +100,11 @@ public class CliCalculator {
         }
 
         if (scanningState == READ_NUMBER) {
-            terminal.add((int) 'N');
-            terminalValues.add(number);
+            terminal.push((int) 'N');
+            terminalValues.push(number);
             number = 0;
         }
-
-        terminalPosition = terminal.size() - 1;
+        
         return terminal;
     }
 
@@ -117,14 +112,14 @@ public class CliCalculator {
 
         int termValue = evaluateTerm();
 
-        if (terminal.get(terminalPosition) == '+') {
-            terminalPosition--;
+        if (terminal.peek() == '+') {
+            terminal.pop();
 
             return evaluateExpression() + termValue;
 
         }
-        if (terminal.get(terminalPosition) == '-') {
-            terminalPosition--;
+        if (terminal.peek() == '-') {
+            terminal.pop();
             return evaluateExpression() - termValue;
 
         }
@@ -139,17 +134,17 @@ public class CliCalculator {
     private int evaluateTerm() {
         int factorValue = evaluateFactor();
 
-        if (terminal.get(terminalPosition) == '*') {
-            terminalPosition--;
+        if (terminal.peek() == '*') {
+            terminal.pop();
             return evaluateTerm() * factorValue;
 
         }
-        if (terminal.get(terminalPosition) == '/') {
+        if (terminal.peek() == '/') {
             if (factorValue == 0) {
                 ro.displayResult("Division by zero");
                 throw new IllegalArgumentException("Division by zero");
             }
-            terminalPosition--;
+            terminal.peek();
             return evaluateTerm() / factorValue;
 
         }
@@ -160,15 +155,15 @@ public class CliCalculator {
     private int evaluateFactor() {
         int numberValue = 0;
 
-        if (terminal.get(terminalPosition) == 'N') {
+        if (terminal.peek() == 'N') {
             numberValue = terminalValues.get(terminalValues.size() - 1);
             terminalValues.remove(terminalValues.size() - 1);
-            terminalPosition--;
-        } else if (terminal.get(terminalPosition) == ')') {
-            terminalPosition--;
+            terminal.pop();
+        } else if (terminal.peek() == ')') {
+            terminal.pop();
             numberValue = evaluateExpression();
-            if (terminal.get(terminalPosition) == '(') {
-                terminalPosition--;
+            if (terminal.peek() == '(') {
+                terminal.pop();
             } else {
                 ro.displayResult("Syntax Error");
                 throw new SyntaxException("Syntax Error!");
@@ -178,8 +173,8 @@ public class CliCalculator {
             throw new SyntaxException("Syntax Error!");
         }
 
-        if (terminal.get(terminalPosition) == '-' && terminal.get(terminalPosition - 1) != 'N' && terminal.get(terminalPosition - 1) != ')') {
-            terminalPosition--;
+        if (terminal.peek() == '-' && terminal.get(terminal.size() - 2) != 'N' && terminal.get(terminal.size() - 2) != ')') {
+            terminal.pop();
             return -numberValue;
         }
         return numberValue;
