@@ -12,6 +12,7 @@ import static java.lang.Character.isDigit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Stack;
+import java.util.concurrent.atomic.AtomicInteger;
 import jdk.nashorn.internal.runtime.regexp.joni.exception.SyntaxException;
 
 /**
@@ -25,15 +26,21 @@ public class CliCalculator {
     private final ExpressionInput ei;
     private final ResultOutput ro;
     private String originalExpression = "";
+    private AtomicInteger availableThreads;
 
     private Stack<Integer> terminal;
     private Stack<Integer> terminalValues;
     private final List<Character> OPERATORS;
 
     public CliCalculator(ExpressionInput ei, ResultOutput ro) {
+        this(ei, ro, 1);
+    }
+
+    public CliCalculator(ExpressionInput ei, ResultOutput ro, int availableThreads) {
         this.OPERATORS = Arrays.asList('(', ')', '+', '-', '*', '/');
         this.ei = ei;
         this.ro = ro;
+        this.availableThreads = new AtomicInteger(1);
     }
 
     public void start() {
@@ -42,12 +49,19 @@ public class CliCalculator {
 
         while (!originalExpression.equals("q")) {
 
-            terminal = scanExpression(originalExpression);
+            try {
 
-            //System.out.println(terminal);
-            //System.out.println(terminalValues);
-            int result = evaluateExpression();
-            ro.displayResult(String.format("%d", result));
+                terminal = scanExpression(originalExpression);
+
+                //System.out.println(terminal);
+                //System.out.println(terminalValues);
+                int result = evaluateExpression();
+                ro.displayResult(String.format("%d", result));
+
+            } catch (IllegalArgumentException | SyntaxException e) {
+                e.printStackTrace();
+            }
+
             originalExpression = ei.getInput();
 
         }
@@ -107,34 +121,39 @@ public class CliCalculator {
         return terminal;
     }
 
-    private int evaluateExpression() {
+    private boolean isOperator(int character) {
+        Character c = (char) character;
+        return OPERATORS.contains(c);
+    }
+
+    private int evaluateExpression() throws IllegalArgumentException, SyntaxException {
 
         int termValue = evaluateTerm();
 
         if (terminal.peek() == '+') {
             terminal.pop();
 
+            //possible thread
             return evaluateExpression() + termValue;
 
         }
         if (terminal.peek() == '-') {
             terminal.pop();
+
+            //possible thread
             return evaluateExpression() - termValue;
 
         }
         return termValue;
     }
 
-    private boolean isOperator(int character) {
-        Character c = (char) character;
-        return OPERATORS.contains(c);
-    }
-
-    private int evaluateTerm() {
+    private int evaluateTerm() throws IllegalArgumentException, SyntaxException {
         int factorValue = evaluateFactor();
 
         if (terminal.peek() == '*') {
             terminal.pop();
+
+            //possible thread
             return evaluateTerm() * factorValue;
 
         }
@@ -144,6 +163,7 @@ public class CliCalculator {
                 throw new IllegalArgumentException("Division by zero");
             }
             terminal.pop();
+            //possible thread
             return evaluateTerm() / factorValue;
 
         }
@@ -151,12 +171,11 @@ public class CliCalculator {
 
     }
 
-    private int evaluateFactor() {
+    private int evaluateFactor() throws SyntaxException {
         int numberValue = 0;
 
         if (terminal.peek() == 'N') {
-            numberValue = terminalValues.get(terminalValues.size() - 1);
-            terminalValues.remove(terminalValues.size() - 1);
+            numberValue = terminalValues.pop();
             terminal.pop();
         } else if (terminal.peek() == ')') {
             terminal.pop();
@@ -178,5 +197,15 @@ public class CliCalculator {
         }
         return numberValue;
     }
+    
+    private class SubCalculator implements Runnable{
 
+        private int currentPosition;
+        
+        @Override
+        public void run() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+        
+    }
 }
